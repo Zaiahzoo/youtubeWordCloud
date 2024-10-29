@@ -32,32 +32,25 @@ let pages = {
 let userInput = '';
 
 function preload() {
-  // Loop through each folder
   for (let i = 0; i < imageFolders.length; i++) {
     let folder = imageFolders[i];
     let imagesArray = [];
-    let stopLoading = false; // Flag to stop loading images
-
-    // Try loading images in each folder until one fails
-    for (let j = 1; j <= maxAttempts && !stopLoading; j++) {
+    
+    for (let j = 1; j <= maxAttempts; j++) {
       let imagePath = `thumbnails/${folder}/image${j}.jpg`;
-      
-      loadImage(imagePath,
-        function(successImg) {
-          // If the image loads successfully, add to the array
-          successImg.resize(150, 0);
-          imagesArray.push(successImg);
+      let img = loadImage(imagePath, 
+        // Success callback
+        loadedImg => {
+          loadedImg.resize(150, 0);
+          imagesArray[j-1] = loadedImg;
         },
-        function() {
-          // When loading fails, set the stop flag to true
-          console.log(`No more images in ${folder} after image${j - 1}`);
-          stopLoading = true;
+        // Error callback
+        () => {
+          // Skip failed loads
         }
       );
     }
-
-    // Store the array of images for the current folder
-    folderImages.push(imagesArray);
+    folderImages[i] = imagesArray;
   }
 }
 
@@ -111,9 +104,11 @@ function keyPressed() {
 // Background functions
 function setupBackground() {
   let cols = ceil(width / symbolSize);
+  // Limit maximum number of streams
+  const maxStreams = Math.min(cols, 100); // Adjust this number based on performance
   streams = [];
-  for (let i = 0; i < cols; i++) {
-    let x = i * symbolSize;
+  for (let i = 0; i < maxStreams; i++) {
+    let x = i * (width / maxStreams);
     streams[i] = new Stream(x, height);
   }
 }
@@ -123,13 +118,23 @@ function drawBackground() {
   let elapsed = (currentTime - lastTime) / 1000;
   lastTime = currentTime;
 
-  for (let i = streams.length - 1; i >= 0; i--) {
-    streams[i].update(elapsed);
-    streams[i].render();
-    if (streams[i].isOffscreen()) {
-      streams.splice(i, 1);
-      streams.push(new Stream(random(width), height));
+  // Only update every other frame for better performance
+  if (frameCount % 2 === 0) {
+    for (let i = streams.length - 1; i >= 0; i--) {
+      streams[i].update(elapsed);
+      if (streams[i].isOffscreen()) {
+        streams.splice(i, 1);
+        // Only add new stream if we're below maximum
+        if (streams.length < 100) {
+          streams.push(new Stream(random(width), height));
+        }
+      }
     }
+  }
+
+  // Draw all streams
+  for (let stream of streams) {
+    stream.render();
   }
 }
 
@@ -139,8 +144,13 @@ class Stream {
     this.y = random(-1000, 0);
     this.speed = random(1, 5);
     this.characters = [];
-    this.totalLength = round(random(5, 30));
+    this.totalLength = round(random(5, 15)); // Reduced max length
     this.canvasHeight = canvasHeight;
+    
+    // Pre-calculate character positions
+    this.characterPositions = Array(this.totalLength).fill().map((_, i) => i * symbolSize);
+    
+    // Initialize characters
     for (let i = 0; i < this.totalLength; i++) {
       this.characters.push(this.randomChar());
     }
@@ -170,24 +180,22 @@ class Stream {
 
   render() {
     if (this.y < -this.totalLength * symbolSize || this.y > this.canvasHeight) {
-      return; // Don't render if entirely off-screen
+      return;
     }
     
     push();
     textSize(symbolSize);
-    noStroke();  // Remove the stroke
-    for (let i = 0; i < this.characters.length; i++) {
-      let y = this.y + i * symbolSize;
+    noStroke();
+    
+    for (let i = 0; i < this.totalLength; i++) {
+      let y = this.y + (i * symbolSize);
       if (y > 0 && y < height) {
-        let alpha = map(i, 0, this.characters.length - 1, 255, 50);
+        let alpha = map(i, 0, this.totalLength - 1, 255, 50);
         
-        // Create a glow effect
-        for (let j = 3; j > 0; j--) {
-          fill(0, 255, 70, alpha / (j * 2));
-          text(this.characters[i], this.x, y);
-        }
+        // Single glow effect for better performance
+        fill(0, 255, 70, alpha / 2);
+        text(this.characters[i], this.x, y);
         
-        // Draw the main character
         fill(50, 255, 120, alpha);
         text(this.characters[i], this.x, y);
       }
@@ -245,6 +253,8 @@ function setupSecondPage() {
 
 function drawSecondPage() {
   background(0);
+  
+  // Draw background normally
   drawBackground();
 
   // Draw UI elements for the second page
@@ -253,34 +263,54 @@ function drawSecondPage() {
   textAlign(CENTER, CENTER);
   text("Who do you think I am?", width / 2, height / 2 - 50);
   
-  // Create an input box
+  // Create an input box only once
   if (!this.input) {
     this.input = createInput();
-    this.input.position(width / 2 - 100, height / 2 + 20);
-    this.input.size(200);
+    let inputWidth = 200;
+    this.input.size(inputWidth);
+    this.input.position(width/2 - inputWidth/2, height/2);
     this.input.style('background-color', 'black');
     this.input.style('color', 'rgb(50, 255, 120)');
     this.input.style('border', '2px solid rgb(50, 255, 120)');
   }
   
-  // Create a submit button
+  // Create a submit button only once
   if (!this.button) {
     this.button = createButton('Submit');
-    this.button.position(width / 2 - 50, height / 2 + 60);
+    let buttonWidth = 100;
+    this.button.size(buttonWidth);
+    this.button.position(width/2 - buttonWidth/2, height/2 + 40);
     this.button.mousePressed(() => {
       if (this.input) {
-        userInput = this.input.value();
-        this.input.remove();
-        this.button.remove();
-        this.input = null;
-        this.button = null;
-        currentPage = 'main';
-        clickCount = 0;
-        imagesShown = [];
-        imagesShownX = [];
-        imagesShownY = [];
-        setupBackground();
-        pages[currentPage].setup();
+        // Create the form data
+        const formData = new FormData();
+        formData.append('form-name', 'matrix-responses');
+        formData.append('answer', this.input.value());
+        formData.append('timestamp', new Date().toISOString());
+
+        // Submit the form
+        fetch('/', {
+          method: 'POST',
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams(formData).toString()
+        })
+        .then(() => {
+          console.log('Form submitted successfully');
+          // Continue with your existing transition code
+          userInput = this.input.value();
+          this.input.remove();
+          this.button.remove();
+          this.input = null;
+          this.button = null;
+          currentPage = 'main';
+          clickCount = 0;
+          imagesShown = [];
+          imagesShownX = [];
+          imagesShownY = [];
+          setupBackground();
+          pages[currentPage].setup();
+        })
+        .catch(error => console.log('Form submission error:', error));
       }
     });
     this.button.style('background-color', 'black');
