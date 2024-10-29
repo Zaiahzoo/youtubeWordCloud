@@ -282,19 +282,26 @@ function drawSecondPage() {
     this.button.position(width/2 - buttonWidth/2, height/2 + 40);
     this.button.mousePressed(() => {
       if (this.input) {
-        // Create the form data
+        // Create the form data - make sure names match the hidden form
         const formData = new FormData();
-        formData.append('form-name', 'matrix-responses');
-        formData.append('answer', this.input.value());
-        formData.append('timestamp', new Date().toISOString());
+        formData.append('form-name', 'matrix-responses');  // Must match the form name in HTML
+        formData.append('answer', this.input.value());     // Must match input name in HTML
+        formData.append('timestamp', new Date().toISOString()); // Must match input name in HTML
 
-        // Submit the form
+        // Add this line to help debug
+        console.log('Attempting to submit form:', Object.fromEntries(formData));
+
         fetch('/', {
           method: 'POST',
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          headers: { 
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
           body: new URLSearchParams(formData).toString()
         })
-        .then(() => {
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
           console.log('Form submitted successfully');
           // Continue with your existing transition code
           userInput = this.input.value();
@@ -310,7 +317,10 @@ function drawSecondPage() {
           setupBackground();
           pages[currentPage].setup();
         })
-        .catch(error => console.log('Form submission error:', error));
+        .catch(error => {
+          console.error('Form submission error:', error);
+          // Optionally add user feedback here
+        });
       }
     });
     this.button.style('background-color', 'black');
