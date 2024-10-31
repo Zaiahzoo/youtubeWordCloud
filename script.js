@@ -31,6 +31,23 @@ let pages = {
 
 let userInput = '';
 
+let previousAnswers = ['0', '1']; // Default to binary if no submissions exist
+
+async function fetchSubmissions() {
+  try {
+    const response = await fetch('/.netlify/functions/get-submissions');
+    const data = await response.json();
+    if (data.submissions && data.submissions.length > 0) {
+      // Add new submissions to our array
+      previousAnswers = data.submissions.map(sub => sub.answer);
+      console.log('Loaded submissions:', previousAnswers);
+    }
+  } catch (error) {
+    console.log('Error fetching submissions:', error);
+    // Keep default binary if fetch fails
+  }
+}
+
 function preload() {
   for (let i = 0; i < imageFolders.length; i++) {
     let folder = imageFolders[i];
@@ -56,6 +73,7 @@ function preload() {
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
+  fetchSubmissions();
   x = width;
   y = height;
   rowHeight = y / 3;
@@ -157,10 +175,13 @@ class Stream {
   }
 
   randomChar() {
-    if (userInput === '') {
-      return Math.random() < 0.5 ? '0' : '1';
-    } else {
+    if (userInput !== '') {
       return userInput.charAt(Math.floor(Math.random() * userInput.length));
+    } else {
+      // Use previous submissions some of the time
+      return Math.random() < 0.3 ? // 30% chance to use a submission
+        previousAnswers[Math.floor(Math.random() * previousAnswers.length)].charAt(Math.floor(Math.random() * previousAnswers[0].length)) :
+        (Math.random() < 0.5 ? '0' : '1');
     }
   }
 
