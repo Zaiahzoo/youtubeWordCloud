@@ -159,45 +159,74 @@ class Stream {
     this.y = random(-1000, 0);
     this.speed = random(1, 5);
     this.characters = [];
-    this.totalLength = round(random(5, 15)); // Reduced max length
+    this.totalLength = round(random(5, 30));
     this.canvasHeight = canvasHeight;
     
-    // Pre-calculate character positions
-    this.characterPositions = Array(this.totalLength).fill().map((_, i) => i * symbolSize);
+    // Decide what type of stream this will be
+    if (userInput !== '') {
+      this.streamType = Math.random() < 0.3 ? 'userInput' : 
+                       (Math.random() < 0.5 ? 'submission' : 'binary');
+    } else {
+      this.streamType = Math.random() < 0.3 ? 'submission' : 'binary';
+    }
     
-    // Initialize characters
+    // If it's a submission stream, pick one submission to use
+    if (this.streamType === 'submission' && previousAnswers.length > 0) {
+      this.selectedSubmission = previousAnswers[Math.floor(Math.random() * previousAnswers.length)];
+    }
+    
+    // Fill the stream with appropriate characters
     for (let i = 0; i < this.totalLength; i++) {
       this.characters.push(this.randomChar());
     }
   }
 
   randomChar() {
-    if (userInput !== '') {
-      return userInput.charAt(Math.floor(Math.random() * userInput.length));
-    } else {
-      // Use previous submissions if available, otherwise use binary
-      if (previousAnswers && previousAnswers.length > 0) {
-        return Math.random() < 0.3 ? 
-          previousAnswers[Math.floor(Math.random() * previousAnswers.length)].charAt(Math.floor(Math.random() * previousAnswers[0].length)) :
-          (Math.random() < 0.5 ? '0' : '1');
-      } else {
+    switch(this.streamType) {
+      case 'userInput':
+        return userInput.charAt(Math.floor(Math.random() * userInput.length));
+      case 'submission':
+        if (this.selectedSubmission) {
+          return this.selectedSubmission.charAt(Math.floor(Math.random() * this.selectedSubmission.length));
+        }
+        // Fall through to binary if no submission available
+      default:
         return Math.random() < 0.5 ? '0' : '1';
-      }
     }
   }
 
-  update(elapsed) {
-    this.y += this.speed;
-    if (this.y > height) {
-      this.y = random(-1000, 0);
+  // When stream is recycled, reset its type and content
+  reset() {
+    this.y = 0;
+    // Reselect stream type
+    if (userInput !== '') {
+      this.streamType = Math.random() < 0.3 ? 'userInput' : 
+                       (Math.random() < 0.5 ? 'submission' : 'binary');
+    } else {
+      this.streamType = Math.random() < 0.3 ? 'submission' : 'binary';
     }
-    if (random() < 0.1) {
-      this.characters[floor(random(this.characters.length))] = this.randomChar();
+    
+    // If it's a submission stream, pick one submission
+    if (this.streamType === 'submission' && previousAnswers.length > 0) {
+      this.selectedSubmission = previousAnswers[Math.floor(Math.random() * previousAnswers.length)];
+    }
+    
+    // Refill characters
+    this.characters = [];
+    for (let i = 0; i < this.totalLength; i++) {
+      this.characters.push(this.randomChar());
     }
   }
 
   isOffscreen() {
-    return this.y - this.totalLength * symbolSize > this.canvasHeight;
+    return this.y > this.canvasHeight;
+  }
+
+  update(elapsed) {
+    this.y += this.speed;
+    if (this.isOffscreen()) {
+      this.reset();
+    }
   }
 
   render() {
