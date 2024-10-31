@@ -36,6 +36,9 @@ let previousAnswers = ['0', '1']; // Default to binary if no submissions exist
 async function fetchSubmissions() {
   try {
     const response = await fetch('/.netlify/functions/get-submissions');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     const data = await response.json();
     if (data.submissions && data.submissions.length > 0) {
       // Add new submissions to our array
@@ -44,7 +47,8 @@ async function fetchSubmissions() {
     }
   } catch (error) {
     console.log('Error fetching submissions:', error);
-    // Keep default binary if fetch fails
+    // Keep using default binary values
+    previousAnswers = ['0', '1'];
   }
 }
 
@@ -110,13 +114,6 @@ function keyPressed() {
     imagesShownX = [];
     imagesShownY = [];
   } 
-  if (key === '1') {
-    currentPage = 'main';
-    pages[currentPage].setup();
-  } else if (key === '2') {
-    currentPage = 'secondPage';
-    pages[currentPage].setup();
-  }
 }
 
 // Background functions
@@ -178,10 +175,14 @@ class Stream {
     if (userInput !== '') {
       return userInput.charAt(Math.floor(Math.random() * userInput.length));
     } else {
-      // Use previous submissions some of the time
-      return Math.random() < 0.3 ? // 30% chance to use a submission
-        previousAnswers[Math.floor(Math.random() * previousAnswers.length)].charAt(Math.floor(Math.random() * previousAnswers[0].length)) :
-        (Math.random() < 0.5 ? '0' : '1');
+      // Use previous submissions if available, otherwise use binary
+      if (previousAnswers && previousAnswers.length > 0) {
+        return Math.random() < 0.3 ? 
+          previousAnswers[Math.floor(Math.random() * previousAnswers.length)].charAt(Math.floor(Math.random() * previousAnswers[0].length)) :
+          (Math.random() < 0.5 ? '0' : '1');
+      } else {
+        return Math.random() < 0.5 ? '0' : '1';
+      }
     }
   }
 
