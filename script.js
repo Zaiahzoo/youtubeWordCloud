@@ -165,8 +165,37 @@ class Stream {
     // Pre-calculate positions for better performance
     this.characterPositions = Array(this.totalLength).fill().map((_, i) => i * symbolSize);
     
-    // Decide stream type and content once at creation
-    this.setupStreamType();
+    // Setup stream type and content
+    if (userInput !== '') {
+      this.streamType = Math.random() < 0.3 ? 'userInput' : 
+                       (Math.random() < 0.5 ? 'submission' : 'binary');
+    } else {
+      this.streamType = Math.random() < 0.3 ? 'submission' : 'binary';
+    }
+    
+    // If it's a submission stream, pick one submission
+    if (this.streamType === 'submission' && previousAnswers.length > 0) {
+      this.selectedSubmission = previousAnswers[Math.floor(Math.random() * previousAnswers.length)];
+    }
+    
+    // Fill the stream with appropriate characters
+    for (let i = 0; i < this.totalLength; i++) {
+      this.characters.push(this.randomChar());
+    }
+  }
+
+  randomChar() {
+    switch(this.streamType) {
+      case 'userInput':
+        return userInput.charAt(Math.floor(Math.random() * userInput.length));
+      case 'submission':
+        if (this.selectedSubmission) {
+          return this.selectedSubmission.charAt(Math.floor(Math.random() * this.selectedSubmission.length));
+        }
+        // Fall through to binary if no submission available
+      default:
+        return Math.random() < 0.5 ? '0' : '1';
+    }
   }
 
   render() {
@@ -196,6 +225,36 @@ class Stream {
       }
     }
     pop();
+  }
+
+  update(elapsed) {
+    this.y += this.speed;
+  }
+
+  isOffscreen() {
+    return this.y > this.canvasHeight;
+  }
+
+  reset() {
+    this.y = 0;
+    // Reselect stream type
+    if (userInput !== '') {
+      this.streamType = Math.random() < 0.3 ? 'userInput' : 
+                       (Math.random() < 0.5 ? 'submission' : 'binary');
+    } else {
+      this.streamType = Math.random() < 0.3 ? 'submission' : 'binary';
+    }
+    
+    // If it's a submission stream, pick one submission
+    if (this.streamType === 'submission' && previousAnswers.length > 0) {
+      this.selectedSubmission = previousAnswers[Math.floor(Math.random() * previousAnswers.length)];
+    }
+    
+    // Refill characters
+    this.characters = [];
+    for (let i = 0; i < this.totalLength; i++) {
+      this.characters.push(this.randomChar());
+    }
   }
 }
 
