@@ -159,74 +159,14 @@ class Stream {
     this.y = random(-1000, 0);
     this.speed = random(1, 5);
     this.characters = [];
-    this.totalLength = round(random(5, 30));
+    this.totalLength = round(random(5, 15)); // Reduced max length
     this.canvasHeight = canvasHeight;
     
-    // Decide what type of stream this will be
-    if (userInput !== '') {
-      this.streamType = Math.random() < 0.3 ? 'userInput' : 
-                       (Math.random() < 0.5 ? 'submission' : 'binary');
-    } else {
-      this.streamType = Math.random() < 0.3 ? 'submission' : 'binary';
-    }
+    // Pre-calculate positions for better performance
+    this.characterPositions = Array(this.totalLength).fill().map((_, i) => i * symbolSize);
     
-    // If it's a submission stream, pick one submission to use
-    if (this.streamType === 'submission' && previousAnswers.length > 0) {
-      this.selectedSubmission = previousAnswers[Math.floor(Math.random() * previousAnswers.length)];
-    }
-    
-    // Fill the stream with appropriate characters
-    for (let i = 0; i < this.totalLength; i++) {
-      this.characters.push(this.randomChar());
-    }
-  }
-
-  randomChar() {
-    switch(this.streamType) {
-      case 'userInput':
-        return userInput.charAt(Math.floor(Math.random() * userInput.length));
-      case 'submission':
-        if (this.selectedSubmission) {
-          return this.selectedSubmission.charAt(Math.floor(Math.random() * this.selectedSubmission.length));
-        }
-        // Fall through to binary if no submission available
-      default:
-        return Math.random() < 0.5 ? '0' : '1';
-    }
-  }
-
-  // When stream is recycled, reset its type and content
-  reset() {
-    this.y = 0;
-    // Reselect stream type
-    if (userInput !== '') {
-      this.streamType = Math.random() < 0.3 ? 'userInput' : 
-                       (Math.random() < 0.5 ? 'submission' : 'binary');
-    } else {
-      this.streamType = Math.random() < 0.3 ? 'submission' : 'binary';
-    }
-    
-    // If it's a submission stream, pick one submission
-    if (this.streamType === 'submission' && previousAnswers.length > 0) {
-      this.selectedSubmission = previousAnswers[Math.floor(Math.random() * previousAnswers.length)];
-    }
-    
-    // Refill characters
-    this.characters = [];
-    for (let i = 0; i < this.totalLength; i++) {
-      this.characters.push(this.randomChar());
-    }
-  }
-
-  isOffscreen() {
-    return this.y > this.canvasHeight;
-  }
-
-  update(elapsed) {
-    this.y += this.speed;
-    if (this.isOffscreen()) {
-      this.reset();
-    }
+    // Decide stream type and content once at creation
+    this.setupStreamType();
   }
 
   render() {
@@ -238,8 +178,12 @@ class Stream {
     textSize(symbolSize);
     noStroke();
     
-    for (let i = 0; i < this.totalLength; i++) {
-      let y = this.y + (i * symbolSize);
+    // Only render visible characters
+    const startIndex = Math.max(0, Math.floor(-this.y / symbolSize));
+    const endIndex = Math.min(this.totalLength, Math.ceil((this.canvasHeight - this.y) / symbolSize));
+    
+    for (let i = startIndex; i < endIndex; i++) {
+      let y = this.y + this.characterPositions[i];
       if (y > 0 && y < height) {
         let alpha = map(i, 0, this.totalLength - 1, 255, 50);
         
