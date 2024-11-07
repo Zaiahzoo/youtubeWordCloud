@@ -66,14 +66,16 @@ async function loadImages() {
   for (let i = 0; i < imageFolders.length; i++) {
     let folder = imageFolders[i];
     let imagesArray = [];
-    
+
+    // Create an array of promises for loading images
+    const loadPromises = [];
     for (let j = 1; j <= maxAttempts; j++) {
       let imagePath = `thumbnails/${folder}/image${j}.jpg`;
-      await new Promise((resolve) => {
+      loadPromises.push(new Promise((resolve) => {
         loadImage(imagePath, 
           loadedImg => {
             loadedImg.resize(150, 0);
-            imagesArray[j-1] = loadedImg;
+            imagesArray[j - 1] = loadedImg;
             resolve(); // Resolve the promise when the image is loaded
           },
           () => {
@@ -81,8 +83,11 @@ async function loadImages() {
             resolve(); // Resolve even if the image fails to load
           }
         );
-      });
+      }));
     }
+
+    // Wait for all images in the folder to load
+    await Promise.all(loadPromises);
     folderImages[i] = imagesArray;
   }
 }
