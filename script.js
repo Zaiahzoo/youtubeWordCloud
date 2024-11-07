@@ -33,6 +33,16 @@ let userInput = '';
 
 let previousAnswers = ['0', '1']; // Default to binary if no submissions exist
 
+let loading = true; // Flag to indicate loading state
+let loadingText = "Welcome to the YouTube Matrix... Figure out who I am based on my YouTube viewing patterns."; // Text to display
+let currentText = ""; // Text currently displayed
+let typingSpeed = 50; // Speed of typing in milliseconds
+let lastTypedTime = 0; // Time of the last character typed
+let textIndex = 0; // Current index of the text being typed
+
+let inputField; // Declare input field variable
+let submitButton; // Declare submit button variable
+
 async function fetchSubmissions() {
   try {
     const response = await fetch('/.netlify/functions/get-submissions');
@@ -52,24 +62,26 @@ async function fetchSubmissions() {
   }
 }
 
-function preload() {
+async function loadImages() {
   for (let i = 0; i < imageFolders.length; i++) {
     let folder = imageFolders[i];
     let imagesArray = [];
     
     for (let j = 1; j <= maxAttempts; j++) {
       let imagePath = `thumbnails/${folder}/image${j}.jpg`;
-      let img = loadImage(imagePath, 
-        // Success callback
-        loadedImg => {
-          loadedImg.resize(150, 0);
-          imagesArray[j-1] = loadedImg;
-        },
-        // Error callback
-        () => {
-          // Skip failed loads
-        }
-      );
+      await new Promise((resolve) => {
+        loadImage(imagePath, 
+          loadedImg => {
+            loadedImg.resize(150, 0);
+            imagesArray[j-1] = loadedImg;
+            resolve(); // Resolve the promise when the image is loaded
+          },
+          () => {
+            // Skip failed loads
+            resolve(); // Resolve even if the image fails to load
+          }
+        );
+      });
     }
     folderImages[i] = imagesArray;
   }
@@ -77,7 +89,12 @@ function preload() {
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  fetchSubmissions();
+  
+  // Start loading images and submissions
+  Promise.all([fetchSubmissions(), loadImages()]).then(() => {
+    loading = false; // Set loading to false when done
+  });
+  
   x = width;
   y = height;
   rowHeight = y / 3;
@@ -94,13 +111,27 @@ function setup() {
 }
 
 function draw() {
-  background(0);
-  
-  // Draw background
-  drawBackground();
+  if (loading) {
+    drawLoadingScreen(); // Call the loading screen function
+    handleTyping(); // Handle the typing effect
+  } else {
+    background(0);
+    
+    // Set stroke based on the current page
+    if (currentPage === 'main') {
+      stroke(255); // White stroke for the main page
+      strokeWeight(4); // Thicker stroke for the main page
+    } else if (currentPage === 'secondPage') {
+      stroke(255); // White stroke for the second page
+      strokeWeight(2); // Thinner stroke for the second page
+    }
 
-  // Draw UI elements for the current page
-  pages[currentPage].draw();
+    // Draw background
+    drawBackground();
+
+    // Draw UI elements for the current page
+    pages[currentPage].draw();
+  }
 }
 
 function mouseClicked() {
@@ -260,24 +291,36 @@ class Stream {
 
 // Main page functions
 function setupMainPage() {
+  // Clear any existing input field and button
+  if (inputField) {
+    inputField.remove(); // Remove the input field
+    inputField = null; // Set to null to indicate it's removed
+  }
+  
+  if (submitButton) {
+    submitButton.remove(); // Remove the submit button
+    submitButton = null; // Set to null to indicate it's removed
+  }
+
   // Setup specific to the main page
+  // Add any additional setup code for the main page here
 }
 
 function drawMainPage() {
   // Draw UI elements for the main page
-  for(let i = 0; i < imagesShown.length; i++) {
+  for (let i = 0; i < imagesShown.length; i++) {
     image(imagesShown[i], imagesShownX[i], imagesShownY[i]);
   }
   
   textSize(18);
-  for(let row = 0; row < 3; row++) {
-    let useRow = (rowHeight/2) + (row * rowHeight);
-    for(let col = 0; col < 5; col++) {
-      let useCol = (colWidth/2) + (col * colWidth);
-      if(dist(mouseX, mouseY, useCol, useRow) < x/15) {
+  for (let row = 0; row < 3; row++) {
+    let useRow = (rowHeight / 2) + (row * rowHeight);
+    for (let col = 0; col < 5; col++) {
+      let useCol = (colWidth / 2) + (col * colWidth);
+      if (dist(mouseX, mouseY, useCol, useRow) < x / 15) {
         fill(0);
-        text(imageFolders[(row*5)+col], useCol, useRow + x/15);
-        ellipse(useCol, useRow, x/15, x/15);
+        text(imageFolders[(row * 5) + col], useCol, useRow + x / 15);
+        ellipse(useCol, useRow, x / 15, x / 15);
         break;
       }
     }
@@ -306,83 +349,107 @@ function setupSecondPage() {
 }
 
 function drawSecondPage() {
-  background(0);
+  // Call the background drawing function
+  drawBackground(); // Ensure the background is drawn first
   
-  // Draw background normally
-  drawBackground();
-
   // Draw UI elements for the second page
   fill(50, 255, 120);
   textSize(32);
   textAlign(CENTER, CENTER);
   text("Who do you think I am?", width / 2, height / 2 - 50);
   
-  // Create an input box only once
-  if (!this.input) {
-    this.input = createInput();
-    let inputWidth = 200;
-    this.input.size(inputWidth);
-    this.input.position(width/2 - inputWidth/2, height/2);
-    this.input.style('background-color', 'black');
-    this.input.style('color', 'rgb(50, 255, 120)');
-    this.input.style('border', '2px solid rgb(50, 255, 120)');
+  // Create input field if it doesn't exist
+  if (!inputField) {
+    inputField = createInput();
+    inputField.position(width / 2 - 100, height / 2);
+    inputField.size(200);
+    inputField.style('background-color', 'black');
+    inputField.style('color', 'rgb(50, 255, 120)');
+    inputField.style('border', '2px solid rgb(50, 255, 120)');
   }
   
-  // Create a submit button only once
-  if (!this.button) {
-    this.button = createButton('Submit');
-    let buttonWidth = 100;
-    this.button.size(buttonWidth);
-    this.button.position(width/2 - buttonWidth/2, height/2 + 40);
-    this.button.mousePressed(() => {
-      if (this.input) {
-        // Create the form data - make sure names match the hidden form
-        const formData = new FormData();
-        formData.append('form-name', 'matrix-responses');  // Must match the form name in HTML
-        formData.append('answer', this.input.value());     // Must match input name in HTML
-        formData.append('timestamp', new Date().toISOString()); // Must match input name in HTML
-
-        // Add this line to help debug
-        console.log('Attempting to submit form:', Object.fromEntries(formData));
-
-        fetch('/', {
-          method: 'POST',
-          headers: { 
-            "Content-Type": "application/x-www-form-urlencoded"
-          },
-          body: new URLSearchParams(formData).toString()
-        })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          console.log('Form submitted successfully');
-          // Continue with your existing transition code
-          userInput = this.input.value();
-          this.input.remove();
-          this.button.remove();
-          this.input = null;
-          this.button = null;
-          currentPage = 'main';
-          clickCount = 0;
-          imagesShown = [];
-          imagesShownX = [];
-          imagesShownY = [];
-          setupBackground();
-          pages[currentPage].setup();
-        })
-        .catch(error => {
-          console.error('Form submission error:', error);
-          // Optionally add user feedback here
-        });
-      }
-    });
-    this.button.style('background-color', 'black');
-    this.button.style('color', 'rgb(50, 255, 120)');
-    this.button.style('border', '2px solid rgb(50, 255, 120)');
+  // Create submit button if it doesn't exist
+  if (!submitButton) {
+    submitButton = createButton('Submit');
+    submitButton.position(width / 2 - 50, height / 2 + 40);
+    submitButton.size(100);
+    submitButton.mousePressed(handleSubmit); // Call handleSubmit on click
+    submitButton.style('background-color', 'black');
+    submitButton.style('color', 'rgb(50, 255, 120)');
+    submitButton.style('border', '2px solid rgb(50, 255, 120)');
   }
 }
 
 function mouseClickedSecondPage() {
   // Add implementation for the second page
+}
+
+// Function to handle form submission
+function handleSubmit() {
+  if (inputField) {
+    const formData = new FormData();
+    formData.append('form-name', 'matrix-responses');
+    formData.append('answer', inputField.value());
+    formData.append('timestamp', new Date().toISOString());
+
+    fetch('/', {
+      method: 'POST',
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(formData).toString()
+    })
+    .then(() => {
+      console.log('Form submitted successfully');
+      // Clear input field after submission
+      inputField.value('');
+
+      // Switch back to the main page
+      currentPage = 'main'; // Set the current page to 'main'
+      clickCount = 0; // Reset click count if needed
+      imagesShown = []; // Clear shown images if needed
+      imagesShownX = [];
+      imagesShownY = [];
+      setupBackground(); // Call setupBackground if needed
+      pages[currentPage].setup(); // Call the setup function for the main page
+    })
+    .catch(error => console.log('Form submission error:', error));
+  }
+}
+
+// Function to draw the loading screen
+function drawLoadingScreen() {
+  background(0); // Black background
+  fill(50, 255, 120); // Set the fill color to match the scrolling text
+  noStroke(); // Ensure no stroke is applied to the text
+  textSize(32);
+  textAlign(CENTER, CENTER);
+  text(currentText, width / 2, height / 2); // Display the current text
+}
+
+// Function to handle the typing effect
+function handleTyping() {
+  if (millis() - lastTypedTime > typingSpeed && textIndex < loadingText.length) {
+    // Check if the next characters form an ellipsis
+    if (loadingText.substr(textIndex, 3) === '...') {
+      currentText += '...\n'; // Add the ellipsis and a newline
+      textIndex += 3; // Move the index forward by 3
+    } else {
+      const nextChar = loadingText.charAt(textIndex); // Get the next character
+
+      // Check for other punctuation
+      if (['.', '!', '?', ','].includes(nextChar)) {
+        // Check if this is the last character
+        if (textIndex < loadingText.length - 1) {
+          currentText += nextChar + '\n'; // Add the punctuation and a newline
+        } else {
+          currentText += nextChar; // Just add the punctuation without a newline
+        }
+      } else {
+        currentText += nextChar; // Add the next character
+      }
+
+      textIndex++; // Move to the next character
+    }
+
+    lastTypedTime = millis(); // Update the last typed time
+  }
 }
