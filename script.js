@@ -13,6 +13,14 @@ let clickCount = 0;
 let symbolSize = 18;
 let streams = [];
 let lastTime = 0;
+let questions = [
+  "Who do you think I am?",
+  "How old am I?",
+  "What do I do in my free time?",
+  "Where do I live?",
+  "What am I interested in?"
+]
+let currentQuestion;
 
 let currentPage = 'main'; // Start with the main page
 let pages = {
@@ -26,7 +34,7 @@ let pages = {
     draw: drawSecondPage,
     mouseClicked: mouseClickedSecondPage
   }
-  // Add more pages as needed
+  
 };
 
 let userInput = '';
@@ -350,7 +358,7 @@ function mouseClickedMainPage() {
 
 // Second page functions
 function setupSecondPage() {
-  // Setup specific to the second page
+  currentQuestion = random(questions)
 }
 
 function drawSecondPage() {
@@ -361,7 +369,7 @@ function drawSecondPage() {
   fill(50, 255, 120);
   textSize(32);
   textAlign(CENTER, CENTER);
-  text("Who do you think I am?", width / 2, height / 2 - 50);
+  text(currentQuestion, width / 2, height / 2 - 50);
   
   // Create input field if it doesn't exist
   if (!inputField) {
