@@ -9,6 +9,7 @@ let imagesShown = [];
 let imagesShownX = [];
 let imagesShownY = [];
 let clickCount = 0;
+let answerCount = 0;
 // Background variables
 let symbolSize = 18;
 let streams = [];
@@ -33,8 +34,12 @@ let pages = {
     setup: setupSecondPage,
     draw: drawSecondPage,
     mouseClicked: mouseClickedSecondPage
+  },
+  endPage: {
+    setup: setupSecondPage,
+    draw: drawEndPage,
+    mouseClicked: mouseClickedEndPage
   }
-  
 };
 
 let userInput = '';
@@ -140,7 +145,10 @@ function draw() {
     }
 
     // Draw background
-    drawBackground();
+    if(currentPage != 'endPage')
+    {
+      drawBackground();
+    }
 
     // Draw UI elements for the current page
     pages[currentPage].draw();
@@ -404,6 +412,8 @@ function handleSubmit() {
     formData.append('form-name', 'matrix-responses');
     formData.append('answer', inputField.value());
     formData.append('timestamp', new Date().toISOString());
+    answerCount++;
+    previousAnswers.push(inputField.value());
 
     fetch('/', {
       method: 'POST',
@@ -416,16 +426,66 @@ function handleSubmit() {
       inputField.value('');
 
       // Switch back to the main page
-      currentPage = 'main'; // Set the current page to 'main'
-      clickCount = 0; // Reset click count if needed
-      imagesShown = []; // Clear shown images if needed
-      imagesShownX = [];
-      imagesShownY = [];
-      setupBackground(); // Call setupBackground if needed
-      pages[currentPage].setup(); // Call the setup function for the main page
+      if(answerCount < 3){
+        currentPage = 'main'; // Set the current page to 'main'
+        clickCount = 0; // Reset click count if needed
+        imagesShown = []; // Clear shown images if needed
+        imagesShownX = [];
+        imagesShownY = [];
+        setupBackground(); // Call setupBackground if needed
+        pages[currentPage].setup(); // Call the setup function for the main page
+      }
+      else {
+        currentPage = 'endPage'
+        setupMainPage();
+        setupEndPage();
+      }
+      
     })
     .catch(error => console.log('Form submission error:', error));
   }
+}
+
+function setupEndPage()
+{
+  // Clear any existing input field and button
+  if (inputField) {
+    inputField.remove(); // Remove the input field
+    inputField = null; // Set to null to indicate it's removed
+  }
+  
+  if (submitButton) {
+    submitButton.remove(); // Remove the submit button
+    submitButton = null; // Set to null to indicate it's removed
+  }
+  
+
+}
+
+function drawEndPage()
+{
+  frameRate(1)
+  background(0); // Set the background to black
+  fill(50, 255, 120); // Set the fill color to green
+  stroke(255); // Set the stroke color to white
+  strokeWeight(1); // Set the stroke weight
+
+  // Scatter previousAnswers around the page
+  for (let i = 0; i < previousAnswers.length; i++) {
+    if (previousAnswers[i] == '0' || previousAnswers[i] == '1')
+    {
+      continue
+    }
+    let x = random(width); // Random x position
+    let y = random(height); // Random y position
+    textSize(32); // Set text size
+    text(previousAnswers[i], x, y); // Draw the text at the random position
+  }
+}
+
+function mouseClickedEndPage()
+{
+
 }
 
 // Function to draw the loading screen
